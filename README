@@ -1,0 +1,15 @@
+SWAN Predictor: Integrative Modeling of Menopause Age and Symptom Risk
+
+The SWAN Predictor prototype combines data from two large population studies — NHANES (U.S. National Health and Nutrition Examination Survey) and SWAN (Study of Women’s Health Across the Nation) — to build predictive models of hormonal aging and menopause transition. The goal was to integrate clinical and biochemical biomarkers into a unified tool that estimates both the expected age of menopause and the likelihood of key menopausal symptoms.
+
+The first stage of modeling focused on Anti-Müllerian Hormone (AMH), a well-known marker of ovarian reserve. Using the NHANES dataset, a two-stage generalized additive model with gamma distribution was developed to predict AMH concentration based on age, FSH, BMI, and a set of metabolic biomarkers (glucose, insulin, triglycerides, LDL, HDL, SHBG). This model enables the estimation of AMH levels even when they are not available in a user’s clinical panel, providing a biologically coherent input for subsequent menopause prediction.
+
+In the second stage, data from the SWAN longitudinal cohort were used to construct a model of the expected age at final menstrual period (FMP) — the clinical marker of menopause onset. The model applies a two-step k-nearest-neighbor algorithm using age and AMH as main anchors, with a Gaussian weighting kernel to estimate individual FMP age along with a 95% confidence interval. This nonparametric approach preserves real population variability and reproduces the observed modal age of natural menopause (~52 years) seen in epidemiologic studies.
+
+The third component addresses symptom risk modeling. For each self-reported symptom — including hot flashes, sleep disturbances, mood changes, urinary leakage, breast tenderness, and pelvic discomfort — logistic regression models were trained using the same predictor set. Despite the multifactorial nature of these symptoms, several achieved meaningful discriminatory performance (AUCs 0.55–0.70). Notably, vasomotor symptoms (hot flashes) showed the strongest hormone-linked signal (AUC ≈ 0.68), reflecting their close association with estrogen dynamics.
+
+To make these models accessible and interactive, a web interface and backend system were implemented using an R–PHP–JavaScript stack. R handles all statistical inference and model execution; PHP acts as a secure middleware for command-line calls and logging; and the front-end, written in modern HTML/CSS with jQuery, provides an intuitive user experience. Users can enter their biomarker values, run real-time predictions, and visualize outcomes through interactive sliders showing individual symptom risk levels.
+
+The prototype produces biologically plausible estimates: predicted AMH levels and FMP ages fall within clinically realistic ranges, and symptom risk patterns align with known hormonal transitions. This demonstrates the feasibility of merging epidemiologic modeling and web-based decision support in the field of women’s health.
+
+The system is deployed as a working demonstration at http://mp.bio.nkk.net.ru/
