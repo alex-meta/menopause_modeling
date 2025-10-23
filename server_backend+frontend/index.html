@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SWAN Predictor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  <style>
+    :root{
+      --bg:#f7f7fb; --panel:#ffffff; --ink:#1b1f24; --muted:#6b7280;
+      --brand:#2b6cb0; --ok:#16a34a; --warn:#eab308; --danger:#dc2626;
+      --border:#e5e7eb; --shadow:0 10px 25px rgba(0,0,0,.07);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,Segoe UI,Inter,Roboto,"Helvetica Neue",Arial}
+    .wrap{max-width:1100px; margin:40px auto; padding:0 16px}
+    .card{background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow); padding:24px;}
+    h1{margin:0 0 20px; text-align:center; font-weight:700; letter-spacing:.2px}
+    .grid{display:grid; grid-template-columns:1.1fr 1.3fr; gap:24px}
+    .input-panel{border:1px solid var(--border); border-radius:var(--radius); padding:18px;}
+    .input-row{display:grid; grid-template-columns: 1.2fr 1fr; gap:12px; align-items:center; margin-bottom:10px}
+    .input-row label{font-size:14px; color:var(--muted)}
+    .input-row input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:#fff; outline:none;}
+    .input-note{font-size:12px; color:var(--muted); margin:6px 0 12px}
+    .btn{
+      width:100%; display:block; text-align:center; padding:14px 16px; border-radius:12px;
+      background:var(--brand); color:white; font-weight:700; border:none; cursor:pointer; margin-top:12px
+    }
+    .btn:disabled{opacity:.6; cursor:progress}
+    .result-panel{border:1px solid var(--border); border-radius:var(--radius); padding:18px; display:flex; flex-direction:column; gap:16px;}
+    .age-card{background:#f8fafc; border:1px dashed var(--border); padding:16px; border-radius:12px}
+    .age-big{font-size:40px; font-weight:800}
+    .age-ci{color:var(--muted); font-size:14px}
+
+    .risk-title{font-weight:600}
+    .risk-desc{font-size:12px; color:var(--muted)}
+
+    input[type=range]{-webkit-appearance:none; width:100%; height:8px; border-radius:999px; background:linear-gradient(90deg, var(--ok), var(--warn) 50%, var(--danger)); outline:none}
+    input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; border:2px solid var(--ink); box-shadow:0 2px 8px rgba(0,0,0,.15)}
+    .pill{padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; display:inline-flex; align-items:center; gap:6px}
+    .pill.low{background:#e8f7ee; color:var(--ok)}
+    .pill.med{background:#fff7db; color:#a16207}
+    .pill.high{background:#fee2e2; color:var(--danger)}
+    .centerbox{max-width:900px; margin:0 auto}
+    .headerbox{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px; text-align:center}
+    .footer-note{color:var(--muted); font-size:12px; margin-top:6px}
+    .error{color:var(--danger); font-weight:600}
+    @media (max-width: 900px){ .grid{grid-template-columns:1fr} }
+
+
+
+
+
+
+
+
+/* ЗАМЕНИ это: .risk-item и .slider-wrap */
+
+.risk-item{
+  display:grid;
+  grid-template-columns: 200px auto; /* слева текст, справа — широкая панель со слайдером  minmax(320px, 1fr) */
+  gap:16px;
+  align-items:center;
+}
+
+.slider-wrap{
+  display:grid;
+  grid-template-columns: 72px auto 72px; /* процент | слайдер | плашка */
+  align-items:center;
+  gap:10px;
+  width:100%;              /* растянуть на всю ширину правого столбца */
+  justify-self:stretch;    /* важно: не дать блоку ужаться/съехать вправо */
+}
+
+.risk-value{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink);
+  text-align:right;
+}
+
+.slider-wrap input[type=range]{
+  width:100%;
+  min-width:120px;         /* чтобы ползунок не схлопывался */
+}
+
+/* На узких экранах — в один столбец, слайдер под названием */
+@media (max-width: 700px){
+  .risk-item{ grid-template-columns: 1fr; }
+}
+
+
+
+
+
+
+
+
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="centerbox headerbox">
+      <h1>Estimated Menopause Age & Symptom Risks</h1>
+      <div class="footer-note">Units: NHANES SI (glucose/lipids — mmol/L; insulin — pmol/L; AMH — ng/mL). If AMH is empty, it will be imputed by the model.</div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <!-- LEFT: inputs -->
+        <div class="input-panel">
+          <div class="input-row"><label>Age (years)</label><input type="number" step="0.1" id="age" value="49.0"></div>
+          <div class="input-row"><label>FSH (mIU/mL)</label><input type="number" step="0.1" id="fsh" value="30"></div>
+          <div class="input-row"><label>Glucose (mmol/L)</label><input type="number" step="0.1" id="glucose" value="5.2"></div>
+          <div class="input-row"><label>Insulin (pmol/L)</label><input type="number" step="1" id="insulin" value="90"></div>
+          <div class="input-row"><label>Triglycerides (mmol/L)</label><input type="number" step="0.01" id="tg" value="1.2"></div>
+          <div class="input-row"><label>LDL (mmol/L)</label><input type="number" step="0.01" id="ldl" value="3.1"></div>
+          <div class="input-row"><label>HDL (mmol/L)</label><input type="number" step="0.01" id="hdl" value="1.5"></div>
+          <div class="input-row"><label>BMI (kg/m²)</label><input type="number" step="0.1" id="bmi" value="26.5"></div>
+          <div class="input-row"><label>SHBG (nmol/L)</label><input type="number" step="1" id="shbg" value="50"></div>
+          <div class="input-row"><label>AMH (ng/mL, optional)</label><input type="number" step="0.01" id="amh" value=""></div>
+          <div class="input-note">If AMH is blank, it will be imputed automatically.</div>
+          <button class="btn" id="runBtn">Calculate</button>
+          <div id="err" class="error" style="display:none;margin-top:10px;"></div>
+        </div>
+
+        <!-- RIGHT: results -->
+        <div class="result-panel">
+          <div class="age-card">
+            <div class="age-big"><span id="age_est">—</span> years</div>
+            <div class="age-ci">95% CI: <span id="age_ci">—</span></div>
+            <div class="footer-note" id="age_src"></div>
+          </div>
+          <div id="sliders"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** Map symptom codes -> human-readable English labels */
+const SYMPTOM_LABELS = {
+  HOTFLAS: "Hot flashes / Night sweats",
+  RESTLES: "Restless sleep",
+  TRBLSLE: "Trouble sleeping",
+  TYPNIGH: "Night awakenings",
+  MOODCHN: "Mood changes (general)",
+  MOODCHG: "Mood swings",
+  DEPRESS: "Depressive symptoms",
+  LEAKURI: "Urinary leakage",
+  BREASTP: "Breast pain / tenderness",
+  PELVIC:  "Pelvic pain / discomfort",
+  TENDAFL: "Tendon / muscle ache"
+};
+
+function riskPill(p){
+  if(p < 0.33) return '<span class="pill low">Low</span>';
+  if(p < 0.66) return '<span class="pill med">Medium</span>';
+  return '<span class="pill high">High</span>';
+}
+function riskText(p){
+  if(p < 0.33) return 'Low risk';
+  if(p < 0.66) return 'Medium risk';
+  return 'High risk';
+}
+function displaySymptomName(code){
+  return SYMPTOM_LABELS[code] || code;
+}
+
+function makeSliderRow(code, obj){
+  const name = displaySymptomName(code);
+  const p = Number(obj.probability || 0);
+  const ci = `(${(obj.ci_low*100).toFixed(0)}–${(obj.ci_high*100).toFixed(0)}%)`;
+  const id = 's_'+name.replace(/\W+/g,'_');
+  const valStr = (p*100).toFixed(2) + '%';
+  return `
+    <div class="risk-item">
+      <div>
+        <div class="risk-title">${name}</div>
+        <div class="risk-desc">${riskText(p)} ${ci}</div>
+      </div>
+      <div class="slider-wrap">
+        <div class="risk-value">${valStr}</div>
+        <input type="range" min="0" max="100" value="${(p*100).toFixed(0)}" id="${id}" disabled>
+        ${riskPill(p)}
+      </div>
+    </div>
+  `;
+}
+
+
+function collectPayload(){
+  const v = k => {
+    const x = $('#'+k).val();
+    return x === '' ? null : Number(x);
+  };
+  return {
+    age:     v('age'),
+    fsh:     v('fsh'),
+    glucose: v('glucose'),
+    insulin: v('insulin'),
+    tg:      v('tg'),
+    ldl:     v('ldl'),
+    hdl:     v('hdl'),
+    bmi:     v('bmi'),
+    shbg:    v('shbg'),
+    amh:     v('amh') // may be null
+  };
+}
+
+function renderResult(data){
+  // Estimated FMP age
+  $('#age_est').text(data.predicted_menopause_age?.toFixed ? data.predicted_menopause_age.toFixed(2) : '—');
+  if(data.ci_low != null && data.ci_high != null){
+    $('#age_ci').text(`${data.ci_low.toFixed(2)} – ${data.ci_high.toFixed(2)}`);
+  } else {
+    $('#age_ci').text('—');
+  }
+  // Source/note
+  if(data.input && data.input.amh_imputed){
+    $('#age_src').text(`AMH was imputed by the model: ${Number(data.input.amh_imputed).toFixed(2)} ng/mL`);
+  } else {
+    $('#age_src').text('');
+  }
+
+  // Symptom sliders
+  const $sl = $('#sliders').empty();
+  if(data.symptoms){
+    Object.keys(data.symptoms).forEach(k=>{
+      $sl.append( makeSliderRow(k, data.symptoms[k]) );
+    });
+  }
+}
+
+$(function(){
+  $('#runBtn').on('click', function(){
+    $('#err').hide().text('');
+    const payload = collectPayload();
+    // basic validation
+    if(payload.age == null){ $('#err').text('Please enter age').show(); return; }
+
+    $(this).prop('disabled', true).text('Calculating…');
+
+    $.ajax({
+      url: 'api.php',
+      method: 'POST',
+      dataType: 'json',
+      data: { payload: JSON.stringify(payload) }
+    }).done(function(resp){
+      if(resp && !resp.error){
+        renderResult(resp);
+      } else {
+        $('#err').text(resp.error || 'Unknown error').show();
+      }
+    }).fail(function(xhr){
+      const msg = xhr.responseText || 'Server error';
+      $('#err').text(msg).show();
+    }).always(()=>{
+      $('#runBtn').prop('disabled', false).text('Calculate');
+    });
+  });
+});
+</script>
+</body>
+</html>
